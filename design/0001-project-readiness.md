@@ -422,24 +422,38 @@ External proof      —
 But absence alone does not create a gap. For example, `Case study —` does **not**
 mean "Create case study". Only an evidenced bottleneck may activate it.
 
+Each asset has one of three availability states:
+
+```text
+missing     doesn't exist
+local       exists, but only the owner can use it (a file on their machine)
+available   the target user, and Beacon, can actually reference it
+            (in the repo, published, or at a stable URL)
+```
+
+Readiness cares whether an asset can be used by the next stage, not whether a
+file exists somewhere. The owner may declare assets that don't belong in the
+repo (for example a video kept outside it); a declared asset still needs a
+location, and its state is `local` until others can reach it.
+
 ## 11. Prefer reuse over creation
 
 If an appropriate asset already exists, Heed must not recommend creating another
 one. Example, TypedMem:
 
 ```text
-Temporal Truth Explorer    ✓
-GIF                        ✓
-MP4                        ✓
-Still image                ✓
-Benchmark                  ✓
-README story               ✓
+Temporal Truth Explorer    available
+Still image                available
+Benchmark                  available
+README story               available
+GIF                        local
+MP4                        local
 ```
 
 Therefore Heed should conclude:
 
-> **No new explanation asset is required. Existing assets are ready for
-> distribution.**
+> **No new explanation asset is required.** The motion asset already exists
+> locally: publish and reuse it, don't create one.
 
 Then:
 
@@ -452,9 +466,9 @@ This rule protects the owner from endless polishing.
 Heed may read Beacon artifacts if available. For example:
 
 ```text
-.beacon/value.json
-.beacon/pains.json
-.beacon/experiment.json
+.beacon/value.json     the value map: values, levels, proof, first screen
+.beacon/launch.json    pains, audiences and the one experiment
+.beacon/history/       recorded experiment results
 ```
 
 Beacon evidence can establish:
@@ -571,6 +585,9 @@ PROOF · READY
 Sources →
 ```
 
+(All three figures: reliagent-bench, branch `measure/states-0.9.3`,
+`external/results/states-0.9.3.md:53–54`. A real report cites each one.)
+
 Clicking a missing asset:
 
 ```text
@@ -597,24 +614,20 @@ should approximately produce:
 ```text
 Correctness      ✓
 Product          ✓
-Credibility      ✓
+Credibility      △  two unsupported hallucination claims remain (README:127, :215)
 Proof            ✓
 Understanding    ✓
 Trial            ✓
 Distribution     !
 
 Assets:
-✓ README
-✓ docs
-✓ benchmark
-✓ quickstart
-✓ Temporal Truth Explorer
-✓ GIF
-✓ MP4
-✓ still image
+available  README, docs, benchmark, quickstart,
+           Temporal Truth Explorer, still image
+local      GIF, MP4
 
 Recommendation:
 Do not build another explanation asset.
+The motion asset exists locally: publish and reuse it.
 
 Current bottleneck:
 Distribution.
@@ -623,8 +636,13 @@ Next owner:
 Beacon.
 ```
 
-If Heed instead recommends "create a product video", that is a failure, because a
-suitable video already exists.
+Failures for this case:
+- recommending "create a product video": a suitable video already exists;
+- reporting Credibility ✓ while unsupported claims remain. Readiness must follow
+  the evidence, not the owner's sense that the project is ready.
+
+The acceptance case is not made green by editing TypedMem first. If Heed finds the
+credibility gap, it enters TypedMem's plan the normal way.
 
 ## 18. AgentSeism expected behavior
 
@@ -733,7 +751,62 @@ Implement conservatively:
    the bottleneck.
 5. **Visual report.** Add the compact readiness/bottleneck scene.
 
-## 24. Design principle
+## 24. Relationship to `/heed history`
+
+Readiness is not designed on its own. `/heed history` answers "what changed
+since the last plan, and why?", and its classes (resolved, moved, surfaced,
+narrowed, held, invalidated) describe how the project arrived at its current
+state. Readiness answers "given where the project has arrived, what kind of work
+still blocks the next stage?"
+
+```text
+              /heed history
+
+Previous plan ─────────────→ Current plan
+      │                          │
+      │ resolved                 │ surfaced
+      │ narrowed                 │ held
+      │ invalidated              │ moved
+      │                          │
+      └──────────────┬───────────┘
+                     ▼
+               CURRENT STATE
+                     │
+                     ▼
+                 READINESS
+                     │
+       ┌─────────────┼──────────────┐
+       ▼             ▼              ▼
+    product         proof        explanation
+    blocker         blocker        blocker
+
+                     OR
+
+               ready enough
+                     │
+                     ▼
+             distribution !
+                     │
+                     ▼
+                  Beacon
+```
+
+History also keeps readiness from becoming a checklist. The current state alone
+("video local, credibility △") suggests "publish the video, fix credibility". The
+history (correctness cleared over several runs, docs gaps falling, proof just
+added, not-now items stable, the explanation asset done) supports the stronger
+conclusion that the project has moved from building to distribution.
+
+Order:
+
+1. This design stays **Proposed**. Pushing it doesn't approve implementation.
+2. Design `/heed history` from the four real TypedMem runs.
+3. In that design, define the interface between history and readiness.
+4. Decide whether they ship as one iteration (history → readiness) or as two
+   releases in sequence.
+5. Only then build.
+
+## 25. Design principle
 
 The feature should enforce one rule above all:
 
@@ -749,32 +822,21 @@ At that point Heed's most useful recommendation may simply be:
 
 ---
 
-## Review notes (2026-09-27, checked against the repos; not yet decided)
+## Review notes (2026-09-27) and how they were resolved
 
-These are facts found while filing this doc. They don't change the design; three of
-them affect the acceptance cases.
+Found by checking this doc against the repos when it was filed.
 
-1. **§17 TypedMem Credibility ✓ doesn't match the evidence today.** `/beacon value`
-   v0.1 lists two open stop-saying claims in the TypedMem README: README:127 "AI
-   agents start believing their own hallucinations" and README:215 "Debugging
-   hallucinating agents" as a primary use. Under §4.3 ("README makes unsupported
-   claims"), the honest state is △, unless the owner decides those lines are
-   acceptable. (README:207 and README:281 were fixed in PR #16.)
-2. **§11/§17 GIF and MP4 exist, but not where a repo inventory can see them.** The
-   Explorer (`docs/explorer/`, live at lyr-ai.github.io/typedmem/explorer/) and
-   the still image (`docs/explorer/truth-through-time.png`) are in the repo. The
-   GIF and MP4 exist only on the owner's machine (`~/Desktop/truth-through-time/`).
-   An inventory that reads the repo would mark video as missing, and could then
-   fail §17 by recommending one. The inventory probably needs an
-   exists / published / linkable distinction, or an owner-declared asset list.
-3. **§12 Beacon file names.** Beacon writes `.beacon/launch.json` (pains, audiences
-   and the one experiment together), `.beacon/value.json` and `.beacon/history/`.
-   There is no `pains.json` or `experiment.json`.
-4. **§16 proof figures.** "LongMemEval history 0/11 → 11/11" is in the committed
-   reliagent-bench result (df0ebc6). "GoodAI 9/9" and "Mode A temporal 1.00" still
-   need their sources cited before they appear in a report.
-5. **Sequencing.** The standing rule is that no new Heed features ship before
-   `/heed history` is designed from real runs. The history requirements already
-   include "if a plan shows NOW = 0 or only proof/distribution, don't invent
-   features; hand ownership to Beacon", which is §14 of this doc. Whether
-   readiness comes before, after, or together with history is an owner decision.
+1. **§17 TypedMem Credibility.** The evidence says △: the two README
+   hallucination claims found by `/beacon value` (README:127, :215) are still
+   there. README:207 and :281 were fixed in TypedMem PR #16. **Resolved:** §17
+   now expects △, and a ✓ is listed as a failure.
+2. **GIF and MP4 exist only on the owner's machine.** A repo-only inventory would
+   call video missing and fail §17 by recommending one. **Resolved:** §10 adds
+   the availability states missing / local / available and owner-declared
+   assets; §11 and §17 expect "publish and reuse".
+3. **Beacon file names.** Beacon writes `value.json`, `launch.json` and
+   `history/`, not `pains.json` or `experiment.json`. **Resolved** in §12.
+4. **Uncited proof figures in §16.** **Resolved:** all three are cited to
+   reliagent-bench `measure/states-0.9.3`, `external/results/states-0.9.3.md:53–54`.
+5. **Sequencing with `/heed history`.** **Resolved:** history is designed first,
+   and the interface is defined there (§24).
