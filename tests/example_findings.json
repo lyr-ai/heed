@@ -1,0 +1,121 @@
+{
+  "version": 1,
+  "repo": {"name": "typedmem", "commit": "dd8febf", "branch": "main", "scanned_at": "2026-09-27",
+           "web": "https://github.com/lyr-ai/typedmem"},
+  "areas": [
+    {"id": "docs", "path": "docs/", "label": "Docs site"},
+    {"id": "state", "path": "typedmem/state.py · stores/base.py", "label": "States (0.9)"},
+    {"id": "cli", "path": "typedmem/cli.py", "label": "CLI"},
+    {"id": "issues", "path": "GitHub issues", "label": "Issue tracker"},
+    {"id": "server", "path": "typedmem/server/ · clients/typescript/", "label": "HTTP server & TS client"},
+    {"id": "ci", "path": ".github/workflows/", "label": "CI"}
+  ],
+  "findings": [
+    {
+      "id": "F1",
+      "title": "The docs site never mentions states, the headline feature of 0.9",
+      "area": "docs",
+      "priority": "high",
+      "summary": "The README sends readers to lyr-ai.github.io/typedmem for docs. That site still opens with the pre-0.9 'Contract-driven memory' pitch, and no page on it documents set/get/history, StateConflict or --valid-from.",
+      "failure_mode": "A visitor who follows the README's Docs link finds a different product story and no documentation of the feature the README just showed them. The CLI reference describes `history` as it worked before v0.6.",
+      "impact": ["First-time users arriving from distribution", "Anyone following the CLI reference for `history`"],
+      "why_now": ["0.9.0/0.9.1 released 2026-09-26 with states as the headline", "Distribution of the changing-facts story is about to start", "The explorer now lives on the same site"],
+      "evidence": [
+        {"level": "observed", "kind": "doc", "claim": "Docs home still leads with the old positioning", "file": "docs/index.md", "line": 3},
+        {"level": "observed", "kind": "doc", "claim": "CLI reference has no set/get sections; `history` is documented as the pre-v0.6 evolution_history trail", "file": "docs/cli.md", "line": 107, "end_line": 113},
+        {"level": "observed", "kind": "doc", "claim": "Concepts page says nothing closes a validity window automatically; for states, the resolver now ends a value where the next begins", "file": "docs/concepts.md", "line": 51},
+        {"level": "observed", "kind": "command", "claim": "No docs page mentions set_state, typedmem set/get or StateConflict", "command": "grep -c -E 'set_state|typedmem set|typedmem get|StateConflict' docs/*.md", "exit_code": 1, "output": "0 matches in index.md, quickstart.md, cli.md, server.md, profiles.md, evolvers.md"},
+        {"level": "observed", "kind": "git", "claim": "States landed without a docs change; docs/cli.md was last edited before them (2b78e8b)", "commit": "ec4e03c"},
+        {"level": "observed", "kind": "doc", "claim": "README points readers at the docs site", "file": "README.md", "line": 103}
+      ],
+      "next_step": "Add a 'States' page (set/get/history, the four outcomes, conflicts, --valid-from), fix the `history` entry in docs/cli.md, and align docs/index.md with the README's first screen."
+    },
+    {
+      "id": "F2",
+      "title": "Issue #5 describes the gap 0.9's states now close, but is still open",
+      "area": "issues",
+      "priority": "medium",
+      "summary": "Issue #5 (2026-09-14) records that a slot can't have both one governing value and a queryable past. The state type gives exactly that: a single current value plus history resolvable at any as_of. The issue isn't linked to design 0002.",
+      "failure_mode": "A prospective user scanning open issues concludes TypedMem can't keep a governing value with history, which is the product's main 0.9 promise.",
+      "impact": ["Credibility of the headline feature for issue-readers"],
+      "why_now": ["Distribution starts now; open issues are part of what visitors read"],
+      "evidence": [
+        {"level": "observed", "kind": "issue", "claim": "Open: 'a slot cannot have both one governing value and a queryable past'", "issue": 5},
+        {"level": "observed", "kind": "code", "claim": "resolve() gives one current value per key and resolves any as_of from full history", "file": "typedmem/state.py", "line": 168},
+        {"level": "inferred", "kind": "reasoning", "claim": "The issue was filed for fact/preference slots; it may deserve a note rather than closing, if those types are meant to stay as they are"}
+      ],
+      "next_step": "Comment on #5 linking design 0002 and states; close it or narrow it to the non-state types."
+    },
+    {
+      "id": "F3",
+      "title": "list() can disagree with get() after a future-dated value takes effect",
+      "area": "state",
+      "priority": "medium",
+      "summary": "get/history resolve a state as of now; list/all() read the superseded_by index, which is only rewritten on the next set of that key.",
+      "failure_mode": "After a scheduled value's start passes, list() still shows the old value as active while get() returns the new one.",
+      "impact": ["Code that lists memories instead of calling get()", "Only future-dated values; ordinary sets are consistent"],
+      "why_now": ["Known and tracked (#7), with a strict xfail waiting to flip"],
+      "evidence": [
+        {"level": "confirmed", "kind": "issue", "claim": "Reported with a reproduction", "issue": 7},
+        {"level": "observed", "kind": "test", "claim": "A strict xfail test documents the disagreement", "file": "tests/test_state.py", "line": 254},
+        {"level": "observed", "kind": "command", "claim": "The xfail still fails as expected", "command": "pytest -q tests/test_state.py -k scheduled", "exit_code": 0, "output": "3 passed, 43 deselected, 1 xfailed"}
+      ],
+      "next_step": "Make list/all() resolve states as of now (as in #7); the xfail flips to a pass."
+    },
+    {
+      "id": "F4",
+      "title": "`typedmem set` says '(unchanged)' when it confirms a past value",
+      "area": "cli",
+      "priority": "medium",
+      "summary": "When a late record corroborates a value the state had in the past, the CLI prints 'key = Pro (unchanged)', which reads as if Pro is current.",
+      "failure_mode": "A user following the README's late-record story with a known past value believes the late record changed the current state.",
+      "impact": ["CLI users; the stored state itself is correct"],
+      "why_now": ["The README's story is exactly this scenario"],
+      "evidence": [
+        {"level": "confirmed", "kind": "issue", "claim": "Reported with commands and expected message", "issue": 9},
+        {"level": "observed", "kind": "code", "claim": "The unchanged branch prints the value without checking whether it is current", "file": "typedmem/cli.py", "line": 265}
+      ],
+      "next_step": "Print 'Pro (from Apr 1) already recorded; source added; current is Enterprise' when the confirmed value isn't current."
+    },
+    {
+      "id": "F5",
+      "title": "The HTTP server and TypeScript client can't use states",
+      "area": "server",
+      "priority": "watch",
+      "summary": "States exist only in Python and the CLI. Over HTTP, writing a state is refused (cleanly, with a 400) and there is no endpoint for get/history.",
+      "failure_mode": "Teams using the server or the TS client can't adopt the 0.9 feature at all.",
+      "impact": ["HTTP and TypeScript users"],
+      "why_now": ["Deliberately out of scope for 0.9; becomes relevant if a non-Python user shows up"],
+      "evidence": [
+        {"level": "observed", "kind": "command", "claim": "A state write over HTTP is refused with an explanation", "command": "POST /v1/memories {type: state} (TestClient)", "exit_code": 0, "output": "400 {\"error\":\"'state' memories are written with set_state() ...\",\"code\":\"validation_error\"}"},
+        {"level": "observed", "kind": "code", "claim": "The server's write path is add_memory only", "file": "typedmem/server/app.py", "line": 127},
+        {"level": "inferred", "kind": "reasoning", "claim": "Demand is unknown; build only when a real user asks"}
+      ],
+      "next_step": "None yet. Revisit when a non-Python user asks."
+    },
+    {
+      "id": "F6",
+      "title": "CI doesn't smoke-run the demo the README links to",
+      "area": "ci",
+      "priority": "watch",
+      "summary": "CI runs six example scripts but not agent_loop_demo.py, the 'before-vs-after agent story' linked from the README. It runs today.",
+      "failure_mode": "A future change breaks the linked demo and nothing notices.",
+      "impact": ["Readers who try the linked demo"],
+      "why_now": ["Nothing urgent: it passes today"],
+      "evidence": [
+        {"level": "observed", "kind": "ci", "claim": "The demo step lists six scripts, not agent_loop_demo.py", "file": ".github/workflows/ci.yml", "line": 35, "end_line": 42},
+        {"level": "observed", "kind": "doc", "claim": "The README links this demo", "file": "README.md", "line": 175},
+        {"level": "observed", "kind": "command", "claim": "It runs cleanly today", "command": "python examples/agent_loop_demo.py", "exit_code": 0, "output": "41 lines; ends 'the ability to debug its own behavior over time.'"}
+      ],
+      "next_step": "Add it to the smoke-run list."
+    }
+  ],
+  "not_promoted": [
+    {"title": "Docs workflow failures (7 of the last 30 CI runs)", "reason": "All on 2026-09-13/14, before Pages was enabled on lyr-ai; every docs run since has succeeded."},
+    {"title": "stores/base.py is the second most churned code file and gained 170 lines of state logic", "reason": "Covered by 47 tests in tests/test_state.py across three backends, with mutation checks; churn reflects the 0.9 work, not instability."},
+    {"title": "retrieval/vector_search.py not referenced by tests (inventory heuristic)", "reason": "Exercised through the retriever, which tests/test_retrieval_pipeline.py covers; the heuristic missed the indirect use."},
+    {"title": "A `state` write through the HTTP server could crash it", "reason": "Checked: it returns 400 with a clear message (see F5), not a 500."},
+    {"title": "TODO/FIXME debt", "reason": "The inventory found no TODO, FIXME, HACK or XXX markers in code."}
+  ],
+  "method": {"candidates_investigated": 11, "notes": "Inventory + README/docs read; ran pytest -k scheduled, the uncovered demo, and an HTTP TestClient check. No files outside .heed/ were changed."}
+}
