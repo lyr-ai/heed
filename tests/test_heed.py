@@ -124,3 +124,48 @@ def test_example_findings_render():
     ex = json.loads((Path(__file__).parent / "example_findings.json").read_text())
     html = render.render(ex, None)
     assert "What needs attention in typedmem" in html and html.count('class="card"') == len(ex["findings"])
+
+
+# ── goal mode: project.json ─────────────────────────────────────────────
+def project(**over):
+    d = {"version": 1, "status": "confirmed", "confirmed_at": "2026-09-27",
+         "goal": {"statement": "Retry safely.", "evidence": [OBS_FILE]},
+         "target_users": [{"who": "backend devs", "evidence": [INF]}],
+         "capabilities": [{"id": "retry", "name": "Retries", "status": "shipped",
+                           "evidence": [dict(OBS_FILE, kind="code")]}],
+         "boundary": {"in_scope": [], "out_of_scope": []}, "conflicts": [], "open_questions": []}
+    d.update(over)
+    return d
+
+
+def test_project_valid(repo):
+    assert validate.validate_project(project(), repo) == []
+
+
+@pytest.mark.parametrize("over,needle", [
+    ({"status": "confirmed", "confirmed_at": None}, "confirmed_at"),
+    ({"goal": {"statement": "x", "evidence": [INF]}}, "goal: needs at least one observed"),
+    ({"capabilities": [{"id": "r", "name": "R", "status": "shipped", "evidence": [OBS_TEST]}]}, "shipped needs an observed or confirmed code item"),
+    ({"capabilities": [{"id": "r", "name": "R", "status": "partial", "evidence": [dict(OBS_FILE, kind="code")]}]}, "partial needs a missing note"),
+    ({"capabilities": [{"id": "r", "name": "R", "status": "planned", "evidence": [INF]}]}, "planned needs an observed"),
+    ({"capabilities": [{"id": "r", "name": "R", "status": "someday", "evidence": [OBS_FILE]}]}, "status must be one of"),
+    ({"boundary": {"out_of_scope": [{"item": "NL", "evidence": [INF]}]}}, "needs an observed or confirmed item"),
+    ({"conflicts": [{"topic": "t", "a": {"claim": "x", "file": "README.md", "line": 1}, "b": {"claim": "y"}}]}, "conflicts[0].b: needs a locator"),
+])
+def test_project_gates_reject(repo, over, needle):
+    errs = validate.validate_project(project(**over), repo)
+    assert any(needle in e for e in errs), errs
+
+
+def test_render_project_only_and_combined(repo):
+    only = render.render(None, None, project())
+    assert "What repository is trying to be" in only
+    assert "The project" in only and "What needs attention" not in only
+    both = render.render(doc(finding("watch", [OBS_FILE])), None, project())
+    assert "The project" in both and "What needs attention" in both
+
+
+def test_example_project_renders():
+    ex = json.loads((Path(__file__).parent / "example_project.json").read_text())
+    html = render.render(None, None, ex)
+    assert "Resolved:" in html and html.count('class="st shipped"') == 7

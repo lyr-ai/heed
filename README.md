@@ -63,17 +63,17 @@ For other agents that support skills or custom instructions, point them at
 
 In any git repository:
 
-```text
-/heed
-```
+| Command | What it does | Writes |
+|---|---|---|
+| `/heed` or `/heed health` | Investigates what in the code deserves attention | `.heed/findings.json` |
+| `/heed goal` | Drafts what the project is trying to be (goal, users, capabilities with status, boundary) from the project's own docs, flags where those docs disagree, and asks you to confirm | `.heed/project.json` |
 
-Output goes to `.heed/` (add it to `.gitignore`):
+Every mode also writes `.heed/inventory.json` (the deterministic facts it
+started from) and re-renders `.heed/report.html`. That is one file with no
+server: the confirmed project first, then an attention map, then findings by
+priority, with evidence on demand. Add `.heed/` to `.gitignore`.
 
-| File | What |
-|---|---|
-| `inventory.json` | The deterministic facts the investigation started from |
-| `findings.json` | Findings with their evidence ([format](skills/heed/format.md)) |
-| `report.html` | The visual report: an attention map, then findings by priority, with evidence on demand. One file, no server |
+Formats: [findings and project](skills/heed/format.md).
 
 Heed is **read-only**. It writes nothing outside `.heed/`, and runs the
 project's tests only if they're documented, fast and offline.
@@ -81,11 +81,25 @@ project's tests only if they're documented, fast and offline.
 On a work repository, check that your company allows the coding agent you
 use to read that code. Heed adds no service of its own.
 
-## Status
+## Status and roadmap
 
-v0: used by its author on their own repos. The protocol, the evidence gates
-and the report format will change as it meets real repositories. Issues with
-a finding Heed got wrong, or one it missed, are the most useful kind.
+Heed is used by its author on their own repos. Each step is dogfooded on
+real projects before the next one starts.
+
+- **v0.1 health.** Done.
+- **v0.2 goal.** Done. The goal is confirmed by the owner, never decided by
+  the agent.
+- **v0.3 market.** Public demand (GitHub issues and discussions, Reddit,
+  HN), searched against the confirmed goal and deduplicated by independent
+  users. It reports observed demand with sources, quotes and dates, never a
+  "product-market fit" score.
+- **v0.4 gaps.** A demand × coverage map: shipped, partial, missing, out of
+  scope.
+- **v0.5 plan.** Now / next / later / not now. Every item cites evidence, and
+  bugs, gaps and demand are merged into one plan.
+
+Issues about a finding Heed got wrong, or one it missed, are the most useful
+kind.
 
 ## Also from lyr-ai
 

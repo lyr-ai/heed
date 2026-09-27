@@ -1,0 +1,380 @@
+{
+ "version": 1,
+ "status": "confirmed",
+ "repo": {
+  "name": "typedmem",
+  "commit": "dd8febf",
+  "web": "https://github.com/lyr-ai/typedmem"
+ },
+ "goal": {
+  "statement": "Memory for AI agents when facts change: keep the current value of each piece of state, the values it used to have, and where each came from, and refuse to invent a current value when sources genuinely disagree.",
+  "evidence": [
+   {
+    "level": "observed",
+    "kind": "doc",
+    "claim": "README tagline",
+    "file": "README.md",
+    "line": 3
+   },
+   {
+    "level": "observed",
+    "kind": "doc",
+    "claim": "README positioning: current, used to be true, unresolved",
+    "file": "README.md",
+    "line": 16,
+    "end_line": 17
+   },
+   {
+    "level": "observed",
+    "kind": "command",
+    "claim": "GitHub description",
+    "command": "gh repo view lyr-ai/typedmem --json description",
+    "exit_code": 0,
+    "output": "Memory for AI agents when facts change — current state, history, and provenance."
+   },
+   {
+    "level": "confirmed",
+    "kind": "doc",
+    "claim": "Confirmed by the owner as drafted",
+    "url": "user:2026-09-27"
+   }
+  ]
+ },
+ "target_users": [
+  {
+   "who": "Individual developers building long-lived agents in Python",
+   "evidence": [
+    {
+     "level": "confirmed",
+     "kind": "doc",
+     "claim": "Owner: individual agent builders first",
+     "url": "user:2026-09-27"
+    },
+    {
+     "level": "observed",
+     "kind": "doc",
+     "claim": "Quickstart is AgentMemory in Python and the CLI",
+     "file": "README.md",
+     "line": 43
+    }
+   ]
+  }
+ ],
+ "capabilities": [
+  {
+   "id": "state",
+   "name": "Keep one current value per named state, with its full history",
+   "status": "shipped",
+   "summary": "set / get / history on a key such as account.plan; nothing is overwritten.",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "code",
+     "claim": "AgentMemory.set",
+     "file": "typedmem/agent.py",
+     "line": 236
+    },
+    {
+     "level": "observed",
+     "kind": "code",
+     "claim": "The resolver decides the current value",
+     "file": "typedmem/state.py",
+     "line": 168
+    }
+   ]
+  },
+  {
+   "id": "late",
+   "name": "Order values by when they were true, not when they arrived",
+   "status": "shipped",
+   "summary": "A late record describing the past goes into history.",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "code",
+     "claim": "Validity-time epochs",
+     "file": "typedmem/state.py",
+     "line": 168
+    },
+    {
+     "level": "observed",
+     "kind": "test",
+     "claim": "OpenAI → Google → Anthropic acceptance test",
+     "file": "tests/test_state.py",
+     "line": 70
+    }
+   ]
+  },
+  {
+   "id": "conflict",
+   "name": "Expose disagreement instead of guessing",
+   "status": "shipped",
+   "summary": "Same-moment or weaker-later values raise StateConflict; get() never picks.",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "code",
+     "claim": "StateConflict",
+     "file": "typedmem/state.py",
+     "line": 102
+    },
+    {
+     "level": "observed",
+     "kind": "test",
+     "claim": "Simultaneous disagreement test",
+     "file": "tests/test_state.py",
+     "line": 87
+    }
+   ]
+  },
+  {
+   "id": "provenance",
+   "name": "Keep where every value came from",
+   "status": "shipped",
+   "summary": "Sources with authority; repeating a value adds its source.",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "code",
+     "claim": "Source",
+     "file": "typedmem/source.py",
+     "line": 21
+    },
+    {
+     "level": "observed",
+     "kind": "test",
+     "claim": "Corroboration test",
+     "file": "tests/test_state.py",
+     "line": 59
+    }
+   ]
+  },
+  {
+   "id": "typed",
+   "name": "Typed memory with profiles and per-type conflict policies",
+   "status": "shipped",
+   "summary": "The pre-0.9 core: DomainProfile, ConflictPolicy, evolvers (contradictions, drift, goals, summary).",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "code",
+     "claim": "ConflictPolicy",
+     "file": "typedmem/policy.py",
+     "line": 24
+    },
+    {
+     "level": "observed",
+     "kind": "code",
+     "claim": "DomainProfile",
+     "file": "typedmem/profiles/base.py",
+     "line": 89
+    }
+   ]
+  },
+  {
+   "id": "audit",
+   "name": "Replayable event log of every change",
+   "status": "shipped",
+   "summary": "Before/after snapshots; replay() rebuilds state.",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "code",
+     "claim": "replay()",
+     "file": "typedmem/replay.py",
+     "line": 31
+    }
+   ]
+  },
+  {
+   "id": "recall",
+   "name": "Semantic recall over stored memories",
+   "status": "shipped",
+   "summary": "Hashing embedder by default; optional LLM clients.",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "code",
+     "claim": "AgentMemory.recall",
+     "file": "typedmem/agent.py",
+     "line": 160
+    }
+   ]
+  },
+  {
+   "id": "http",
+   "name": "Use TypedMem over HTTP and from TypeScript",
+   "status": "partial",
+   "summary": "Server and TS client cover the typed-memory API.",
+   "missing": "States (set/get/history) are Python and CLI only; the server refuses state writes. Owner: Python + CLI first; states over HTTP/TS not planned yet.",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "code",
+     "claim": "Server write path is add_memory",
+     "file": "typedmem/server/app.py",
+     "line": 127
+    },
+    {
+     "level": "confirmed",
+     "kind": "doc",
+     "claim": "Owner: not yet; Python + CLI first",
+     "url": "user:2026-09-27"
+    }
+   ]
+  },
+  {
+   "id": "nl",
+   "name": "Extract state from free text (\"Alice works at Anthropic\" → alice.employer)",
+   "status": "out_of_scope",
+   "summary": "You name the key; a later hypothesis.",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "doc",
+     "claim": "Design 0002: out of scope for this change",
+     "file": "design/0002-changing-facts.md",
+     "line": 211
+    }
+   ]
+  }
+ ],
+ "boundary": {
+  "in_scope": [
+   {
+    "item": "Explicit, named state keys",
+    "evidence": [
+     {
+      "level": "observed",
+      "kind": "doc",
+      "claim": "You name the key",
+      "file": "README.md",
+      "line": 94
+     }
+    ]
+   },
+   {
+    "item": "Any state with one value at a time and a history worth keeping",
+    "evidence": [
+     {
+      "level": "observed",
+      "kind": "doc",
+      "claim": "What it's for",
+      "file": "README.md",
+      "line": 88
+     }
+    ]
+   }
+  ],
+  "out_of_scope": [
+   {
+    "item": "Natural-language extraction of state",
+    "evidence": [
+     {
+      "level": "observed",
+      "kind": "doc",
+      "claim": "Design 0002",
+      "file": "design/0002-changing-facts.md",
+      "line": 211
+     }
+    ]
+   },
+   {
+    "item": "Multi-valued state",
+    "evidence": [
+     {
+      "level": "observed",
+      "kind": "doc",
+      "claim": "Single-valued by definition",
+      "file": "design/0002-changing-facts.md",
+      "line": 53,
+      "end_line": 55
+     }
+    ]
+   },
+   {
+    "item": "A general-purpose retrieval engine or vector DB",
+    "evidence": [
+     {
+      "level": "observed",
+      "kind": "doc",
+      "claim": "What TypedMemory is not",
+      "file": "README.md",
+      "line": 204
+     }
+    ]
+   },
+   {
+    "item": "A hosted memory cloud",
+    "evidence": [
+     {
+      "level": "observed",
+      "kind": "doc",
+      "claim": "BYO-deploy only",
+      "file": "README.md",
+      "line": 205
+     }
+    ]
+   },
+   {
+    "item": "States over HTTP and TypeScript (for now)",
+    "evidence": [
+     {
+      "level": "confirmed",
+      "kind": "doc",
+      "claim": "Owner: Python + CLI first, until a non-Python user asks",
+      "url": "user:2026-09-27"
+     }
+    ]
+   }
+  ]
+ },
+ "conflicts": [
+  {
+   "topic": "Positioning on the docs site",
+   "a": {
+    "claim": "README: memory for AI agents when facts change",
+    "file": "README.md",
+    "line": 3
+   },
+   "b": {
+    "claim": "Docs home: contract-driven memory for AI agents",
+    "file": "docs/index.md",
+    "line": 3
+   },
+   "resolution": "Owner: the README is current; the other source is stale"
+  },
+  {
+   "topic": "Positioning on PyPI",
+   "a": {
+    "claim": "README / GitHub: memory when facts change",
+    "file": "README.md",
+    "line": 3
+   },
+   "b": {
+    "claim": "pyproject description, shown on PyPI: contract-driven memory",
+    "file": "pyproject.toml",
+    "line": 8
+   },
+   "resolution": "Owner: the README is current; the other source is stale"
+  },
+  {
+   "topic": "Name",
+   "a": {
+    "claim": "README and package: TypedMem",
+    "file": "README.md",
+    "line": 1
+   },
+   "b": {
+    "claim": "CHANGELOG and older sections: TypedMemory",
+    "file": "CHANGELOG.md",
+    "line": 3
+   },
+   "resolution": "Owner: the README is current; the other source is stale"
+  }
+ ],
+ "open_questions": [
+  "Should the pre-0.9 typed-memory core (profiles, policies, evolvers) stay part of the pitch, or become 'advanced' behind states?"
+ ],
+ "confirmed_at": "2026-09-27"
+}

@@ -60,3 +60,52 @@
 
 A finding with only `inferred` evidence is not a finding. Put it in
 `not_promoted`.
+
+---
+
+# `.heed/project.json` format (version 1), written by `/heed goal`
+
+```json
+{
+  "version": 1,
+  "status": "confirmed",
+  "confirmed_at": "2026-09-27",
+  "goal": {
+    "statement": "Memory for AI agents when facts change: keep the current truth without erasing what used to be true, or where it came from.",
+    "evidence": [{"level": "observed", "kind": "doc", "claim": "README tagline", "file": "README.md", "line": 3}]
+  },
+  "target_users": [
+    {"who": "Developers building long-lived agents", "evidence": [
+      {"level": "inferred", "kind": "reasoning", "claim": "Every example is an agent's memory"}]}
+  ],
+  "capabilities": [
+    {"id": "state", "name": "Keep one current value per state key, with history", "status": "shipped",
+     "summary": "set/get/history; ordered by validity time; conflicts exposed",
+     "evidence": [{"level": "observed", "kind": "code", "claim": "resolver", "file": "typedmem/state.py", "line": 168}]}
+  ],
+  "boundary": {
+    "in_scope": [{"item": "Explicit state keys", "evidence": [ ... ]}],
+    "out_of_scope": [{"item": "Natural-language extraction of state", "evidence": [ ... ]}]
+  },
+  "conflicts": [
+    {"topic": "Positioning", "a": {"claim": "README: memory when facts change", "file": "README.md", "line": 3},
+     "b": {"claim": "Docs site: contract-driven memory", "file": "docs/index.md", "line": 3},
+     "resolution": "User: README is current; the docs site is stale"}
+  ],
+  "open_questions": ["Is the HTTP server a supported surface, or a convenience?"]
+}
+```
+
+- `status`: `draft` | `confirmed`. Once `confirmed`, `confirmed_at` is required.
+- `capabilities[].status`: `shipped` | `partial` | `planned` | `out_of_scope`.
+- Evidence items use the same levels, kinds and locators as `findings.json`.
+- Gates checked by `validate.py --project`:
+
+  | Field | Needs |
+  |---|---|
+  | goal | ≥1 observed or confirmed item |
+  | shipped / partial capability | ≥1 observed or confirmed `code` item |
+  | partial capability | also a `missing` note |
+  | planned capability | ≥1 observed or confirmed item |
+  | out_of_scope capability or boundary item | ≥1 observed or confirmed item |
+  | conflicts | each side has a locator |

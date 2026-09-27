@@ -68,6 +68,17 @@ white-space:pre-wrap;word-break:break-word;font-style:normal;color:var(--ink)}
 details summary{cursor:pointer;font:500 13px var(--sans);color:var(--ink);margin-top:8px}
 .next{font:400 14.5px/1.5 var(--sans);margin:10px 0 0}.next b{font-weight:600}
 .np li{font:400 14.5px/1.5 var(--sans);margin:4px 0}.np .r{color:var(--muted)}
+.goal{font:400 25px/1.35 var(--serif);margin:4px 0 8px;max-width:40ch}
+.st{font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;padding:1px 6px;border-radius:3px;white-space:nowrap}
+.st.shipped{background:var(--sage);color:var(--paper)}.st.partial{background:var(--ochre);color:var(--paper)}
+.st.planned{border:1px solid var(--ink)}.st.out_of_scope{color:var(--muted);border:1px dashed var(--muted)}
+.st.draft{border:1px dashed var(--cinnabar);color:var(--cinnabar)}.st.confirmed{background:var(--ink);color:var(--paper)}
+.caps{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 14px;align-items:baseline;margin:10px 0 0}
+.caps .n{font:400 16px/1.4 var(--serif)}.caps .n small{display:block;font:400 13px/1.45 var(--sans);color:var(--muted)}
+.caps details summary{font-size:12px;color:var(--muted);margin-top:2px}
+.conf{border-left:3px solid var(--cinnabar);padding:4px 0 4px 12px;margin:10px 0;font:400 14.5px/1.5 var(--sans)}
+.conf .loc{display:inline;margin-left:6px}.conf a{color:inherit}.conf.resolved{border-left-color:var(--ochre)}
+h4{font:500 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
 .foot{font:400 12.5px/1.6 var(--mono);color:var(--muted);margin-top:40px;border-top:1px solid var(--rule);padding-top:14px}
 @media (max-width:620px){h1{font-size:30px}.map{grid-template-columns:1fr}.map .blocks{border-top:0;padding-top:0}.cols{grid-template-columns:1fr}
 .ev li{grid-template-columns:18px minmax(0,1fr)}.ev .k{display:none}}
@@ -114,8 +125,56 @@ def strongest(ev: list[dict]) -> dict | None:
     return None
 
 
-def render(doc: dict, inv: dict | None) -> str:
-    repo = doc.get("repo", {})
+STATUS_ORDER = ["shipped", "partial", "planned", "out_of_scope"]
+
+
+def ev_list(web, commit, items) -> str:
+    return '<ul class="ev">' + "".join(
+        f'<li class="{e(x.get("level"))}"><span class="g">{GLYPH.get(x.get("level"), "?")}</span>'
+        f'<span class="k">{e(x.get("kind"))}</span><span>{e(x.get("claim"))}{link(web, commit, x)}</span></li>'
+        for x in items or []) + "</ul>"
+
+
+def project_section(pj: dict, web, commit) -> str:
+    g = pj.get("goal", {})
+    out = [f'<h2>The project <span class="st {e(pj.get("status"))}">{e(pj.get("status"))}'
+           f'{" " + e(pj.get("confirmed_at")) if pj.get("confirmed_at") else ""}</span></h2>',
+           f'<p class="goal">{e(g.get("statement"))}</p>',
+           f'<details><summary>Where this comes from</summary>{ev_list(web, commit, g.get("evidence"))}</details>']
+    users = pj.get("target_users") or []
+    if users:
+        out.append('<h4 style="margin-top:18px">For</h4><ul class="np">' + "".join(
+            f'<li>{e(u.get("who"))}</li>' for u in users) + "</ul>")
+    caps = sorted(pj.get("capabilities") or [], key=lambda c: STATUS_ORDER.index(c.get("status", "planned"))
+                  if c.get("status") in STATUS_ORDER else 9)
+    if caps:
+        rows = "".join(
+            f'<span class="st {e(c.get("status"))}">{e(str(c.get("status")).replace("_", " "))}</span>'
+            f'<div class="n">{e(c.get("name"))}<small>{e(c.get("summary", ""))}'
+            f'{" Missing: " + e(c["missing"]) if c.get("missing") else ""}</small>'
+            f'<details><summary>evidence</summary>{ev_list(web, commit, c.get("evidence"))}</details></div>'
+            for c in caps)
+        out.append(f'<h4 style="margin-top:18px">Can do today, and planned</h4><div class="caps">{rows}</div>')
+    bnd = pj.get("boundary") or {}
+    if bnd.get("in_scope") or bnd.get("out_of_scope"):
+        li = lambda xs: "".join(f"<li>{e(x.get('item'))}</li>" for x in xs or [])
+        out.append(f'<div class="cols" style="margin-top:18px"><div><h4>In scope</h4><ul>{li(bnd.get("in_scope"))}</ul></div>'
+                   f'<div><h4>Out of scope</h4><ul>{li(bnd.get("out_of_scope"))}</ul></div></div>')
+    for c in pj.get("conflicts") or []:
+        a, b = c.get("a", {}), c.get("b", {})
+        out.append(f'<div class="conf{" resolved" if c.get("resolution") else ""}"><b>{e(c.get("topic", "Sources disagree"))}.</b> {e(a.get("claim"))}{link(web, commit, a)}'
+                   f' <i>vs</i> {e(b.get("claim"))}{link(web, commit, b)}'
+                   f'<br><span class="meta">{"Resolved: " + e(c["resolution"]) if c.get("resolution") else "Unresolved"}</span></div>')
+    if pj.get("open_questions"):
+        out.append('<h4 style="margin-top:14px">Open questions</h4><ul class="np">' + "".join(
+            f"<li>{e(q)}</li>" for q in pj["open_questions"]) + "</ul>")
+    return "\n".join(out)
+
+
+def render(doc: dict | None, inv: dict | None, project: dict | None = None) -> str:
+    doc = doc or {"findings": [], "not_promoted": []}
+    only_project = project is not None and not doc.get("findings") and not doc.get("not_promoted")
+    repo = doc.get("repo") or (project or {}).get("repo", {})
     inv_repo = (inv or {}).get("repo", {})
     web = repo.get("web") or inv_repo.get("web")
     commit = repo.get("commit") or inv_repo.get("commit") or "HEAD"
@@ -136,11 +195,22 @@ def render(doc: dict, inv: dict | None) -> str:
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>{CSS}</style></head><body><main>
 <div class="fig">Heed · {e(name)} @ {e(commit)} · {e(repo.get("scanned_at", ""))}</div>
-<h1>What needs attention in {e(name)}</h1>
+<h1>{"What " + e(name) + " is trying to be" if only_project else "What needs attention in " + e(name)}</h1>
 <p class="lede">{len(fs)} finding{'s' if len(fs) != 1 else ''} from {e(method.get('candidates_investigated', '?'))} candidates investigated
 ({', '.join(f'{counts[p]} {p}' for p in ORDER if counts[p])}). Each finding stands on evidence you can check.
 {len(doc.get('not_promoted', []))} candidate{'s' if len(doc.get('not_promoted', [])) != 1 else ''} didn't earn a finding; they're listed at the end.</p>
 """]
+    if only_project:
+        out[-1] = out[-1][:out[-1].index('<p class="lede">')]
+        out.append('<p class="lede">The goal, users, capabilities and boundary, drafted from the project\'s own sources '
+                   'and confirmed by its owner. Later modes judge demand and plans against this.</p>')
+    if project:
+        out.append(project_section(project, web, commit))
+    if only_project:
+        out.append(f'<p class="foot">{e(name)} @ {e(commit)}<br>Generated by Heed (goal).</p></main><script>{JS}</script></body></html>')
+        return "\n".join(out)
+    if project:
+        out.append('<h2>What needs attention</h2>')
     # attention map
     out.append('<div class="map">')
     for aid, items in area_rows:
@@ -207,13 +277,16 @@ def render(doc: dict, inv: dict | None) -> str:
 
 def main(argv: list[str]) -> int:
     if not argv:
-        print("usage: render.py findings.json [inventory.json] -o report.html")
+        print("usage: render.py [findings.json] [inventory.json] [--project project.json] -o report.html")
         return 2
     outp = Path(argv[argv.index("-o") + 1]) if "-o" in argv else Path("report.html")
-    pos = [a for i, a in enumerate(argv) if not a.startswith("-") and (i == 0 or argv[i - 1] != "-o")]
-    doc = json.loads(Path(pos[0]).read_text())
-    inv = json.loads(Path(pos[1]).read_text()) if len(pos) > 1 else None
-    outp.write_text(render(doc, inv))
+    proj = Path(argv[argv.index("--project") + 1]) if "--project" in argv else None
+    pos = [a for i, a in enumerate(argv) if not a.startswith("-") and (i == 0 or argv[i - 1] not in ("-o", "--project"))]
+    docs = [json.loads(Path(x).read_text()) for x in pos if Path(x).exists()]
+    doc = next((d for d in docs if "findings" in d), None)
+    inv = next((d for d in docs if "structure" in d), None)
+    project = json.loads(proj.read_text()) if proj and proj.exists() else None
+    outp.write_text(render(doc, inv, project))
     print(f"wrote {outp}")
     return 0
 

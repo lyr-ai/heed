@@ -1,16 +1,45 @@
 ---
 name: heed
-description: Investigate the current repository and report what deserves attention, backed by evidence. Runs a fixed protocol (deterministic inventory → candidates → evidence-gathering investigation → evidence-gated ranking) and writes .heed/findings.json plus a self-contained visual report (.heed/report.html). Use when the user runs /heed or asks what in this repo needs attention, what is risky, or where to look first.
+description: Evidence-driven project intelligence for the current repository. `/heed` (or `/heed health`) investigates what in the code deserves attention and writes .heed/findings.json plus a visual report. `/heed goal` drafts the project's goal, target users, capabilities and boundary from its own docs, confirms them with the user, and writes .heed/project.json. Use when the user runs /heed, or asks what needs attention in this repo or what the project is trying to be.
 ---
 
-# Heed: what in this repo deserves attention, and the evidence for it
+# Heed
 
-You are running an investigation, not writing a review. The output is a
-short, ranked list of **findings**. Every finding stands on evidence that a
-reader can check, and every evidence item is labelled with how certain it is.
-A plausible-sounding concern with no checkable evidence is **not** a finding.
+Heed makes you investigate, not opine. Every conclusion rests on evidence a
+reader can check, and every evidence item says how certain it is. A
+plausible-sounding claim with no checkable evidence is not a conclusion.
 
 `SKILL_DIR` below means the directory containing this file.
+
+## Modes
+
+Read the protocol for the mode the user asked for, then follow it exactly.
+
+| Command | Mode | Protocol | Output |
+|---|---|---|---|
+| `/heed`, `/heed health` | What in the code deserves attention | `protocols/health.md` | `.heed/findings.json` |
+| `/heed goal` | What the project is trying to be, confirmed by the user | `protocols/goal.md` | `.heed/project.json` |
+| `/heed market`, `/heed plan` | Not built yet (v0.3–v0.5) | | Say so, and suggest `/heed goal` first |
+
+Every mode ends by rendering `.heed/report.html` from whatever `.heed/` holds.
+
+## Evidence levels (all modes)
+
+| Level | Meaning | Examples |
+|---|---|---|
+| `confirmed` | The claim itself is demonstrated | a failing test or command you ran (with output); an open issue that reports it; docs or a user that state it |
+| `observed` | A checkable fact that supports the claim | the TODO exists at `file:line`; no test references the function; the README says X at line N; 9 commits in 90 days |
+| `inferred` | Your reasoning, not directly checkable | "this could amplify retries under load"; "the docs imply this is for agent developers" |
+
+Never upgrade a level to make a claim look stronger. `inferred` is honest
+and useful; it is shown differently in the report, not hidden.
+
+**Locators.** Every `observed` or `confirmed` item names where to check it:
+- `file` + `line` (repo-relative, 1-based), with an optional `end_line`;
+- a `commit` sha;
+- an `issue` number;
+- a `command` with its `exit_code` and `output`;
+- a `url`.
 
 ## Ground rules
 
@@ -24,121 +53,8 @@ A plausible-sounding concern with no checkable evidence is **not** a finding.
 - **Cite, don't assert.** Every OBSERVED or CONFIRMED evidence item needs a
   locator the reader can follow: `file:line`, a commit sha, an issue number,
   or a command with its exit code and output.
-- **Say what you didn't find.** Candidates that don't earn a finding go in
-  `not_promoted`, with the reason. That list is part of the report.
-- **Budget.** A normal run investigates 8–15 candidates and reports at most
-  ~10 findings. Depth beats breadth.
-
-## Phase 1: Inventory (deterministic)
-
-```bash
-mkdir -p .heed
-python3 "$SKILL_DIR/scripts/inventory.py" . > .heed/inventory.json
-```
-
-Read `.heed/inventory.json`. It holds facts, not judgements:
-- **Structure:** tracked files and lines per top-level area.
-- **Git activity:** commits in the last 30 and 90 days, the most-churned
-  files, and author counts.
-- **TODO / FIXME / HACK / XXX** markers, with their age from `git blame`.
-- **Tests:** test files, and which areas have none.
-- **CI:** workflow files and, when `gh` works, recent run conclusions.
-- **Issues:** open issues when `gh` works.
-- **Size:** the largest files.
-
-Also read the README and any contributor or architecture docs, so you know
-what the project *claims* to do and which paths matter most.
-
-## Phase 2: Candidates
-
-From the inventory and the docs, list 8–15 **candidates**. Each one is a
-specific, falsifiable hypothesis tied to the signal that raised it.
-
-- Good: "`retry()` in `net/client.py` may retry non-idempotent POSTs.
-  Signal: FIXME at `client.py:88`, 9 changes in the last 90 days, no test
-  file for `net/`."
-- Bad: "Error handling could be improved."
-
-Prioritise candidates where several signals overlap: churn plus weak tests
-plus a TODO or an open issue on the same path.
-
-## Phase 3: Investigate each candidate
-
-For each candidate, collect evidence against this checklist. Not every item
-applies. Record what you checked, including when you found nothing.
-
-1. The exact code path (`file:line`) and what it does.
-2. Its callers: is this path actually reached from something that matters?
-3. Tests: which ones cover it, and does any test exercise the risky case?
-4. Related TODO / FIXME / HACK markers, and how old they are.
-5. Related open issues or CI failures.
-6. Recent changes (`git log -L` or `git log -- <path>`): is it moving now?
-7. A concrete **failure mode**: what goes wrong, for whom, when.
-8. Optionally, a reproduction: run a relevant existing test, or a safe,
-   read-only command that demonstrates the problem.
-
-Label every evidence item with one level:
-
-| Level | Meaning | Examples |
-|---|---|---|
-| `confirmed` | The problem itself is demonstrated | a failing test or command you ran (with output); an open issue that reports this failure; docs that state the limitation |
-| `observed` | A checkable fact that supports the concern | the TODO exists at `file:line`; no test references the function; the function has no timeout; 9 commits touched it in 90 days |
-| `inferred` | Your reasoning, not directly checkable | "this could amplify retries under load"; "this looks like a stale compatibility path" |
-
-Never upgrade a level to make a finding look stronger. `inferred` is honest
-and useful; it is shown differently in the report, not hidden.
-
-## Phase 4: Decide and rank (evidence-gated)
-
-A candidate becomes a finding only if it has at least one `observed` or
-`confirmed` item. Priority is gated by evidence, and `validate.py` enforces
-these gates:
-
-| Priority | Requires |
-|---|---|
-| `urgent` | ≥1 `confirmed` item, and the path matters now (production, security, data loss, or an active regression) |
-| `high` | ≥1 `confirmed`, or ≥2 `observed` items from different kinds (e.g. `todo` + `test` + `git`), plus a stated failure mode |
-| `medium` | ≥1 `observed` item and a stated failure mode |
-| `watch` | a real signal whose consequence is still mostly `inferred` |
-
-Everything else goes to `not_promoted`, with the reason (for example "no
-callers found; dead code?" or "covered by `test_retry_backoff`").
-
-For every finding, write:
-- **impact:** what the failure would affect, concretely;
-- **why now:** recent churn, an open issue, a regression, or rising use.
-  If nothing makes it timely, say so, and that alone argues for `watch`.
-
-A number never stands in for these reasons.
-
-Group findings into **areas**: the directories or modules a reader would
-recognise. The report's attention map is organised by area.
-
-## Phase 5: Write, validate, render
-
-Write `.heed/findings.json` in the format described in `SKILL_DIR/format.md`,
-then validate it:
-
-```bash
-python3 "$SKILL_DIR/scripts/validate.py" .heed/findings.json
-```
-
-The validator checks the format and the evidence gates, and that every
-`file` locator exists with its line in range, every commit sha exists, and
-every command item records its exit code. Fix every error; don't loosen a
-priority rule to pass. Then render the report and open it:
-
-```bash
-python3 "$SKILL_DIR/scripts/render.py" .heed/findings.json .heed/inventory.json -o .heed/report.html
-open .heed/report.html        # macOS; xdg-open on Linux
-```
-
-## Phase 6: Tell the user
-
-Reply in a few lines:
-- the top 3 findings with their priority, and the strongest evidence for each;
-- how many candidates you investigated and how many were not promoted;
-- the path to the report.
-
-Suggest adding `.heed/` to `.gitignore` if it isn't there. Don't edit
-`.gitignore` yourself.
+- **Say what you couldn't establish.** Every mode has a place for it:
+  `not_promoted` in health, `open_questions` in goal. It is part of the
+  report, not a failure.
+- **Depth beats breadth.** A few well-evidenced conclusions are worth more
+  than many thin ones.
