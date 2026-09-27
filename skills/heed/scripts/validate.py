@@ -2,6 +2,7 @@
 
     python3 validate.py .heed/findings.json [--repo .]
     python3 validate.py --project .heed/project.json [--repo .]
+    python3 validate.py --plan .heed/plan.json [--repo .]
 
 Exit 0 when valid. Otherwise every problem is printed, one per line, and the
 exit code is 1. The gates are the rules in SKILL.md: a priority must be
@@ -182,10 +183,155 @@ def validate_project(doc: dict, repo: Path) -> list[str]:
     return errs
 
 
+GAP_STATUS = ("shipped", "partial", "missing", "out_of_scope")
+CATEGORIES = ("correctness", "credibility", "completeness", "opportunity")
+BUCKETS = ("now", "next", "later", "not_now")
+LIMITS = {"now": 3, "next": 5}
+
+
+def validate_plan(plan: dict, repo: Path, project: dict | None, findings: dict | None,
+                  beacon: dict | None) -> list[str]:
+    errs: list[str] = []
+    if plan.get("version") != 1:
+        errs.append("version must be 1")
+    if not project or project.get("status") != "confirmed":
+        return errs + ["plan needs a confirmed .heed/project.json; run /heed goal first"]
+    if findings is None:
+        errs.append("plan needs .heed/findings.json; run /heed health first")
+    caps = {c.get("id"): c for c in project.get("capabilities") or []}
+    oos = {b.get("item") for b in (project.get("boundary") or {}).get("out_of_scope") or []}
+    oos |= {c.get("name") for c in caps.values() if c.get("status") == "out_of_scope"}
+    finding_ids = {f.get("id") for f in (findings or {}).get("findings") or []}
+    pain_ids = {p.get("id") for p in (beacon or {}).get("pains") or []}
+    promises = {pr.get("id"): pr for pr in plan.get("promises") or []}
+    surfaces = {sf.get("id") for sf in plan.get("surfaces") or []}
+    if not 3 <= len(promises) <= 6:
+        errs.append("promises: break the goal into 3-6 promises")
+    for pid, pr in promises.items():
+        for c in pr.get("capabilities") or []:
+            if c not in caps:
+                errs.append(f"promise {pid}: unknown capability {c}")
+    cells = {}
+    for g in plan.get("gaps") or []:
+        key = f"{g.get('promise')}/{g.get('surface')}"
+        w = f"gap {key}"
+        if g.get("promise") not in promises or g.get("surface") not in surfaces:
+            errs.append(f"{w}: unknown promise or surface")
+        if key in cells:
+            errs.append(f"{w}: duplicate cell")
+        cells[key] = g
+        st = g.get("status")
+        if st not in GAP_STATUS:
+            errs.append(f"{w}: status must be one of {GAP_STATUS}")
+        e, hard = check_evidence(g.get("evidence"), repo, w)
+        errs += e
+        if st == "shipped":
+            want = ("code", "doc") if g.get("surface") == "docs" else ("code",)
+            if not any(x.get("kind") in want for x in hard):
+                errs.append(f"{w}: shipped needs a {' or '.join(want)} locator")
+        if st in ("partial", "missing") and not (g.get("missing") or "").strip():
+            errs.append(f"{w}: {st} needs a missing note")
+        if st == "partial" and not hard:
+            errs.append(f"{w}: partial needs a locator")
+        if st == "out_of_scope" and g.get("boundary") not in oos:
+            errs.append(f"{w}: out_of_scope must name an out-of-scope item of the confirmed project")
+    for pid in promises:
+        for sid in surfaces:
+            if f"{pid}/{sid}" not in cells:
+                errs.append(f"gap {pid}/{sid}: every promise x surface cell needs a status")
+    decisions = {d.get("id"): d for d in plan.get("decisions") or []}
+    blocked = {i for d in decisions.values() for i in d.get("blocks") or []}
+
+    def resolve(ref: str) -> str | None:
+        kind, _, val = ref.partition(":")
+        if kind == "health":
+            return None if val in finding_ids else f"no finding {val} in findings.json"
+        if kind == "gap":
+            return None if val in cells else f"no gap cell {val}"
+        if kind == "goal":
+            return None if val in caps or val in ("boundary", "goal") else f"no capability {val} in project.json"
+        if kind == "beacon":
+            if beacon is None:
+                return "no .beacon/launch.json"
+            return None if val in pain_ids else f"no pain {val} in .beacon/launch.json"
+        if kind == "owner":
+            return None if val in decisions else f"no decision {val}"
+        return f"unknown reference kind '{kind}'"
+
+    counts = {b: 0 for b in BUCKETS}
+    ids = set()
+    for it in plan.get("items") or []:
+        w = f"item {it.get('id')}"
+        if it.get("id") in ids:
+            errs.append(f"{w}: duplicate id")
+        ids.add(it.get("id"))
+        if it.get("category") not in CATEGORIES:
+            errs.append(f"{w}: category must be one of {CATEGORIES}")
+        b = it.get("bucket")
+        if b not in BUCKETS:
+            errs.append(f"{w}: bucket must be one of {BUCKETS}")
+        else:
+            counts[b] += 1
+        refs = it.get("because") or []
+        if not refs:
+            errs.append(f"{w}: needs because references")
+        for r in refs:
+            why = resolve(r)
+            if why:
+                errs.append(f"{w}: {r}: {why}")
+        if it.get("category") == "opportunity" and not any(r.startswith(("health:", "beacon:")) for r in refs):
+            errs.append(f"{w}: an opportunity must cite health: or beacon: evidence")
+        if b == "now" and not (it.get("why_now") or "").strip():
+            errs.append(f"{w}: now needs why_now")
+        if b == "not_now" and not (it.get("reason") or "").strip():
+            errs.append(f"{w}: not_now needs a reason")
+        out = "goal:boundary" in refs or any(
+            r.startswith("gap:") and cells.get(r[4:], {}).get("status") == "out_of_scope" for r in refs)
+        if out and b in ("now", "next", "later") and not any(r.startswith("owner:") for r in refs):
+            errs.append(f"{w}: rests on something out of scope; only not_now unless the owner decided otherwise")
+        if b == "now" and it.get("id") in blocked:
+            errs.append(f"{w}: blocked by an owner decision, so it can't be now")
+        for r in refs:
+            if r.startswith("owner:") and it.get("id") in (decisions.get(r[6:], {}).get("blocks") or []):
+                errs.append(f"{w}: cites {r} as a reason, but that decision is still pending and blocks this item")
+    for b, n in LIMITS.items():
+        if counts[b] > n:
+            errs.append(f"bucket {b}: {counts[b]} items; at most {n}")
+    for did, d in decisions.items():
+        if not d.get("question"):
+            errs.append(f"decision {did}: missing question")
+        for side in ("evidence_for", "evidence_against"):
+            for r in d.get(side) or []:
+                why = resolve(r)
+                if why:
+                    errs.append(f"decision {did}: {r}: {why}")
+        for i in d.get("blocks") or []:
+            if i not in ids:
+                errs.append(f"decision {did}: blocks unknown item {i}")
+    return errs
+
+
 def main(argv: list[str]) -> int:
     if not argv:
         print(__doc__.strip().splitlines()[2].strip())
         return 2
+    if "--plan" in argv:
+        path = Path(argv[argv.index("--plan") + 1])
+        repo = Path(argv[argv.index("--repo") + 1]) if "--repo" in argv else path.resolve().parent.parent
+        load = lambda q: json.loads(q.read_text()) if q.exists() else None
+        plan = load(path)
+        errs = validate_plan(plan, repo, load(path.parent / "project.json"), load(path.parent / "findings.json"),
+                             load(repo / ".beacon" / "launch.json"))
+        for e in errs:
+            print(e)
+        if not errs:
+            items = plan.get("items") or []
+            tally = ", ".join(f"{sum(i.get('bucket') == b for i in items)} {b}" for b in BUCKETS)
+            gaps = plan.get("gaps") or []
+            gt = ", ".join(f"{sum(g.get('status') == s for g in gaps)} {s}" for s in GAP_STATUS)
+            print(f"ok: {len(plan.get('promises') or [])} promises x {len(plan.get('surfaces') or [])} surfaces "
+                  f"({gt}); items: {tally}; {len(plan.get('decisions') or [])} owner decision(s)")
+        return 1 if errs else 0
     project = "--project" in argv
     if project:
         path = Path(argv[argv.index("--project") + 1])

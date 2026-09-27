@@ -79,6 +79,27 @@ details summary{cursor:pointer;font:500 13px var(--sans);color:var(--ink);margin
 .conf{border-left:3px solid var(--cinnabar);padding:4px 0 4px 12px;margin:10px 0;font:400 14.5px/1.5 var(--sans)}
 .conf .loc{display:inline;margin-left:6px}.conf a{color:inherit}.conf.resolved{border-left-color:var(--ochre)}
 h4{font:500 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.cockpit{display:grid;grid-template-columns:minmax(0,1.4fr) 48px minmax(0,1fr) 48px minmax(0,1fr);gap:0;align-items:stretch;margin:6px 0 10px}
+.cockpit>div{border-top:2px solid var(--ink);padding:10px 0 0}.cockpit .arrow{border:0;font:400 24px var(--serif);color:var(--muted);text-align:center;padding-top:34px}
+.cockpit .big{font:400 21px/1.3 var(--serif)}.cockpit ul{list-style:none;padding:0;margin:4px 0 0;font:400 15px/1.7 var(--sans)}
+.cockpit b{font:600 20px var(--serif);margin-right:6px}
+.gmap{border-collapse:collapse;margin:8px 0;font:400 14px var(--sans);width:100%}
+.gmap th{font:500 10.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:6px 8px;text-align:center}
+.gmap th.p{text-align:left;font:400 15px var(--serif);text-transform:none;letter-spacing:0;color:var(--ink)}
+.gmap td{text-align:center;padding:7px 8px;border-top:1px solid var(--rule);font:600 16px var(--mono)}
+.gc.shipped{color:var(--sage)}.gc.partial{color:var(--ochre)}.gc.missing{color:var(--cinnabar)}.gc.out_of_scope{color:var(--muted);font-weight:400}
+.buckets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 26px}
+.bucket h3{font:500 12px var(--mono);letter-spacing:.14em;text-transform:uppercase;margin:0 0 6px;padding-bottom:6px;border-bottom:2px solid var(--ink)}
+.bucket.not_now h3{border-bottom-style:dashed;color:var(--muted)}
+.it{padding:9px 0;border-bottom:1px solid var(--rule)}.it .t{font:400 16.5px/1.35 var(--serif)}
+.it .w{font:400 13.5px/1.5 var(--sans);color:var(--muted);margin-top:3px}
+.cat{font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;margin-right:6px}
+.cat.correctness{color:var(--cinnabar)}.cat.credibility{color:var(--ochre)}.cat.completeness{color:var(--ink)}.cat.opportunity{color:var(--sage)}
+.chip{display:inline-block;font:400 11px var(--mono);border:1px solid var(--rule);border-radius:3px;padding:0 5px;margin:4px 4px 0 0;color:var(--muted);text-decoration:none}
+a.chip:hover{border-color:var(--ink);color:var(--ink)}
+.decision{border:1.5px solid var(--cinnabar);border-radius:4px;padding:12px 14px;margin:14px 0}
+.decision .q{font:400 18px/1.35 var(--serif);margin:4px 0 8px}
+@media (max-width:720px){.cockpit{grid-template-columns:1fr}.cockpit .arrow{display:none}.buckets{grid-template-columns:1fr}.gmap{font-size:12px}}
 .foot{font:400 12.5px/1.6 var(--mono);color:var(--muted);margin-top:40px;border-top:1px solid var(--rule);padding-top:14px}
 @media (max-width:620px){h1{font-size:30px}.map{grid-template-columns:1fr}.map .blocks{border-top:0;padding-top:0}.cols{grid-template-columns:1fr}
 .ev li{grid-template-columns:18px minmax(0,1fr)}.ev .k{display:none}}
@@ -171,7 +192,83 @@ def project_section(pj: dict, web, commit) -> str:
     return "\n".join(out)
 
 
-def render(doc: dict | None, inv: dict | None, project: dict | None = None) -> str:
+GLYPH_GAP = {"shipped": "✓", "partial": "△", "missing": "—", "out_of_scope": "○"}
+BUCKET_LABEL = {"now": "Now", "next": "Next", "later": "Later", "not_now": "Not now"}
+
+
+def plan_section(plan: dict, project: dict | None, doc: dict, beacon: dict | None) -> str:
+    finds = {f.get("id"): f for f in doc.get("findings") or []}
+    caps = {c.get("id"): c for c in (project or {}).get("capabilities") or []}
+    pains = {p.get("id"): p for p in (beacon or {}).get("pains") or []}
+    decisions = {d.get("id"): d for d in plan.get("decisions") or []}
+
+    def chip(ref: str) -> str:
+        kind, _, val = ref.partition(":")
+        title = {"health": (finds.get(val) or {}).get("title"), "goal": (caps.get(val) or {}).get("name") or val,
+                 "beacon": (pains.get(val) or {}).get("statement"), "owner": (decisions.get(val) or {}).get("question"),
+                 "gap": val}.get(kind) or ref
+        href = f"#{e(val)}" if kind == "health" and val in finds else ("#" + e(val) if kind == "owner" else None)
+        return (f'<a class="chip" href="{href}" title="{e(title)}">{e(ref)}</a>' if href
+                else f'<span class="chip" title="{e(title)}">{e(ref)}</span>')
+
+    items = plan.get("items") or []
+    gaps = plan.get("gaps") or []
+    cat_counts = {}
+    for it in items:
+        if it.get("bucket") != "not_now":
+            cat_counts[it["category"]] = cat_counts.get(it["category"], 0) + 1
+    gap_counts = {s: sum(1 for g in gaps if g.get("status") == s) for s in GLYPH_GAP}
+    goal = ((project or {}).get("goal") or {}).get("statement", "")
+    out = ['<div class="cockpit">',
+           f'<div><h4>Goal</h4><div class="big">{e(goal)}</div></div><div class="arrow">→</div>',
+           '<div><h4>Gaps</h4><ul>' + "".join(f"<li><b>{n}</b>{e(c)}</li>" for c, n in sorted(cat_counts.items(), key=lambda kv: -kv[1]))
+           + f'<li><b>{gap_counts["partial"] + gap_counts["missing"]}</b>surface cells partial or missing</li></ul></div><div class="arrow">→</div>',
+           '<div><h4>Attention</h4><ul>' + "".join(
+               f"<li><b>{sum(1 for i in items if i.get('bucket') == b)}</b>{BUCKET_LABEL[b].lower()}</li>" for b in BUCKET_LABEL) + "</ul></div></div>"]
+    # gap map
+    promises, surfaces = plan.get("promises") or [], plan.get("surfaces") or []
+    cell = {(g["promise"], g["surface"]): g for g in gaps}
+    head = "".join(f"<th>{e(sf.get('label'))}</th>" for sf in surfaces)
+    rows = ""
+    for pr in promises:
+        tds = ""
+        for sf in surfaces:
+            g = cell.get((pr["id"], sf["id"]), {})
+            st = g.get("status", "")
+            tip = g.get("missing") or (("Out of scope: " + g["boundary"]) if g.get("boundary") else "") or st
+            tds += f'<td class="gc {e(st)}" title="{e(tip)}">{GLYPH_GAP.get(st, "?")}</td>'
+        rows += f'<tr><th class="p">{e(pr.get("text"))}</th>{tds}</tr>'
+    out.append(f'<h2>Gap map: promises × surfaces</h2><table class="gmap"><tr><th></th>{head}</tr>{rows}</table>'
+               '<div class="legend"><span class="gc shipped">✓ shipped</span><span class="gc partial">△ partial</span>'
+               '<span class="gc missing">— missing</span><span class="gc out_of_scope">○ out of scope</span>'
+               '<span>hover a cell for what is missing</span></div>')
+    # decisions
+    for d in plan.get("decisions") or []:
+        out.append(f'<div class="decision" id="{e(d.get("id"))}"><span class="pr urgent">Owner decision required · {e(d.get("id"))}</span>'
+                   f'<p class="q">{e(d.get("question"))}</p><div class="cols"><div><h4>For</h4>'
+                   + "".join(chip(r) for r in d.get("evidence_for") or []) + '</div><div><h4>Against</h4>'
+                   + "".join(chip(r) for r in d.get("evidence_against") or []) + "</div></div>"
+                   f'<p class="meta" style="margin-top:8px">Blocks {e(", ".join(d.get("blocks") or []))}. Heed does not rank these until the owner decides.</p></div>')
+    # roadmap
+    out.append('<h2>What deserves attention next</h2><div class="buckets">')
+    for b in BUCKET_LABEL:
+        its = [i for i in items if i.get("bucket") == b]
+        if not its:
+            continue
+        cards = "".join(
+            f'<div class="it" id="{e(i.get("id"))}"><div class="t"><span class="cat {e(i.get("category"))}">{e(i.get("category"))}</span>{e(i.get("title"))}</div>'
+            + (f'<div class="w">Why now: {e(i["why_now"])}</div>' if i.get("why_now") else "")
+            + (f'<div class="w">Reason: {e(i["reason"])}</div>' if i.get("reason") else "")
+            + "".join(f'<div class="w" style="color:var(--cinnabar)">Blocked by <a href="#{e(d)}" style="color:inherit">{e(d)}</a>: waiting for the owner</div>'
+                      for d, dd in decisions.items() if i.get("id") in (dd.get("blocks") or []))
+            + "<div>" + "".join(chip(r) for r in i.get("because") or []) + "</div></div>" for i in its)
+        out.append(f'<div class="bucket {b}"><h3>{BUCKET_LABEL[b]} · {len(its)}</h3>{cards}</div>')
+    out.append("</div>")
+    return "\n".join(out)
+
+
+def render(doc: dict | None, inv: dict | None, project: dict | None = None,
+           plan: dict | None = None, beacon: dict | None = None) -> str:
     doc = doc or {"findings": [], "not_promoted": []}
     only_project = project is not None and not doc.get("findings") and not doc.get("not_promoted")
     repo = doc.get("repo") or (project or {}).get("repo", {})
@@ -195,7 +292,7 @@ def render(doc: dict | None, inv: dict | None, project: dict | None = None) -> s
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>{CSS}</style></head><body><main>
 <div class="fig">Heed · {e(name)} @ {e(commit)} · {e(repo.get("scanned_at", ""))}</div>
-<h1>{"What " + e(name) + " is trying to be" if only_project else "What needs attention in " + e(name)}</h1>
+<h1>{"Where is " + e(name) + " relative to its goal?" if plan else ("What " + e(name) + " is trying to be" if only_project else "What needs attention in " + e(name))}</h1>
 <p class="lede">{len(fs)} finding{'s' if len(fs) != 1 else ''} from {e(method.get('candidates_investigated', '?'))} candidates investigated
 ({', '.join(f'{counts[p]} {p}' for p in ORDER if counts[p])}). Each finding stands on evidence you can check.
 {len(doc.get('not_promoted', []))} candidate{'s' if len(doc.get('not_promoted', [])) != 1 else ''} didn't earn a finding; they're listed at the end.</p>
@@ -204,6 +301,11 @@ def render(doc: dict | None, inv: dict | None, project: dict | None = None) -> s
         out[-1] = out[-1][:out[-1].index('<p class="lede">')]
         out.append('<p class="lede">The goal, users, capabilities and boundary, drafted from the project\'s own sources '
                    'and confirmed by its owner. Later modes judge demand and plans against this.</p>')
+    if plan:
+        out[-1] = out[-1][:out[-1].index('<p class="lede">')] if '<p class="lede">' in out[-1] else out[-1]
+        out.append(f'<p class="lede">The plan combines the owner-confirmed goal, {len(doc.get("findings") or [])} health findings'
+                   + (' and Beacon\'s market evidence' if beacon else '') + '. Every item cites its reasons; hover a reference to see it.</p>')
+        out.append(plan_section(plan, project, doc, beacon))
     if project:
         out.append(project_section(project, web, commit))
     if only_project:
@@ -277,16 +379,20 @@ def render(doc: dict | None, inv: dict | None, project: dict | None = None) -> s
 
 def main(argv: list[str]) -> int:
     if not argv:
-        print("usage: render.py [findings.json] [inventory.json] [--project project.json] -o report.html")
+        print("usage: render.py [findings.json] [inventory.json] [--project project.json] [--plan plan.json] -o report.html")
         return 2
     outp = Path(argv[argv.index("-o") + 1]) if "-o" in argv else Path("report.html")
     proj = Path(argv[argv.index("--project") + 1]) if "--project" in argv else None
-    pos = [a for i, a in enumerate(argv) if not a.startswith("-") and (i == 0 or argv[i - 1] not in ("-o", "--project"))]
+    planp = Path(argv[argv.index("--plan") + 1]) if "--plan" in argv else None
+    pos = [a for i, a in enumerate(argv) if not a.startswith("-") and (i == 0 or argv[i - 1] not in ("-o", "--project", "--plan"))]
     docs = [json.loads(Path(x).read_text()) for x in pos if Path(x).exists()]
     doc = next((d for d in docs if "findings" in d), None)
     inv = next((d for d in docs if "structure" in d), None)
     project = json.loads(proj.read_text()) if proj and proj.exists() else None
-    outp.write_text(render(doc, inv, project))
+    plan = json.loads(planp.read_text()) if planp and planp.exists() else None
+    bpath = (planp.resolve().parent.parent / ".beacon" / "launch.json") if planp else None
+    beacon = json.loads(bpath.read_text()) if bpath and bpath.exists() else None
+    outp.write_text(render(doc, inv, project, plan, beacon))
     print(f"wrote {outp}")
     return 0
 

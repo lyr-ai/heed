@@ -1,6 +1,6 @@
 ---
 name: heed
-description: Evidence-driven project intelligence for the current repository. `/heed` (or `/heed health`) investigates what in the code deserves attention and writes .heed/findings.json plus a visual report. `/heed goal` drafts the project's goal, target users, capabilities and boundary from its own docs, confirms them with the user, and writes .heed/project.json. Use when the user runs /heed, or asks what needs attention in this repo or what the project is trying to be.
+description: Evidence-driven project intelligence for the current repository. `/heed` (or `/heed health`) investigates what in the code deserves attention and writes .heed/findings.json plus a visual report. `/heed goal` drafts the project's goal, target users, capabilities and boundary from its own docs, confirms them with the user, and writes .heed/project.json. `/heed plan` combines the confirmed goal, the health findings and (optionally) Beacon's market evidence into a gap map and a now/next/later/not-now roadmap where every item cites its reasons. Use when the user runs /heed, or asks what needs attention in this repo or what the project is trying to be.
 ---
 
 # Heed
@@ -19,7 +19,7 @@ Read the protocol for the mode the user asked for, then follow it exactly.
 |---|---|---|---|
 | `/heed`, `/heed health` | What in the code deserves attention | `protocols/health.md` | `.heed/findings.json` |
 | `/heed goal` | What the project is trying to be, confirmed by the user | `protocols/goal.md` | `.heed/project.json` |
-| `/heed gaps`, `/heed plan` | Not built yet (v0.3–v0.4) | | Say so, and suggest `/heed goal` first |
+| `/heed plan` | Where the project stands against its goal, and what deserves attention next (now / next / later / not now) | `protocols/plan.md` | `.heed/plan.json` |
 
 Every mode ends by rendering `.heed/report.html` from whatever `.heed/` holds.
 

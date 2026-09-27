@@ -67,6 +67,7 @@ In any git repository:
 |---|---|---|
 | `/heed` or `/heed health` | Investigates what in the code deserves attention | `.heed/findings.json` |
 | `/heed goal` | Drafts what the project is trying to be (goal, users, capabilities with status, boundary) from the project's own docs, flags where those docs disagree, and asks you to confirm | `.heed/project.json` |
+| `/heed plan` | Combines the confirmed goal, the health findings and (optionally) [Beacon](https://github.com/lyr-ai/beacon)'s market evidence into a **gap map** (promises × surfaces) and a **roadmap**: now (≤3, each with why-now) / next (≤5) / later / **not now**, where scope creep is refused out loud. Every item cites its reasons; open questions become owner decisions | `.heed/plan.json` |
 
 Every mode also writes `.heed/inventory.json` (the deterministic facts it
 started from) and re-renders `.heed/report.html`. That is one file with no
@@ -89,10 +90,12 @@ real projects before the next one starts.
 - **v0.1 health.** Done.
 - **v0.2 goal.** Done. The goal is confirmed by the owner, never decided by
   the agent.
-- **v0.3 gaps.** Demand × coverage: what the project ships against what
-  users ask for (shipped, partial, missing, out of scope).
-- **v0.4 plan.** Now / next / later / not now. Every item cites evidence, and
-  bugs, gaps and demand are merged into one plan.
+- **v0.3 plan.** Done. A gap map and a now / next / later / not-now roadmap,
+  where every item resolves to a finding, a gap cell, the confirmed goal, a
+  Beacon pain or an owner decision. The validator refuses unevidenced
+  opportunities, out-of-scope work outside *not now*, more than 3 *now*
+  items, and pending decisions cited as reasons.
+- **Later: history.** What changed since the previous plan, and why.
 
 Market and user research (who has the problem, where they are, what they
 ask for) belongs to the companion skill

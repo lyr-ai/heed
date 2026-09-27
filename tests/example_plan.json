@@ -1,0 +1,544 @@
+{
+ "version": 1,
+ "date": "2026-09-27",
+ "promises": [
+  {
+   "id": "current",
+   "text": "One current value per named state",
+   "capabilities": [
+    "state"
+   ]
+  },
+  {
+   "id": "history",
+   "text": "Old values kept as history, never erased",
+   "capabilities": [
+    "state",
+    "audit"
+   ]
+  },
+  {
+   "id": "late",
+   "text": "Late records ordered by when they were true",
+   "capabilities": [
+    "late"
+   ]
+  },
+  {
+   "id": "conflict",
+   "text": "Genuine disagreement exposed, not guessed",
+   "capabilities": [
+    "conflict"
+   ]
+  },
+  {
+   "id": "provenance",
+   "text": "Where every value came from",
+   "capabilities": [
+    "provenance"
+   ]
+  }
+ ],
+ "surfaces": [
+  {
+   "id": "core",
+   "label": "Core"
+  },
+  {
+   "id": "python",
+   "label": "Python API"
+  },
+  {
+   "id": "cli",
+   "label": "CLI"
+  },
+  {
+   "id": "http",
+   "label": "HTTP"
+  },
+  {
+   "id": "ts",
+   "label": "TypeScript"
+  },
+  {
+   "id": "docs",
+   "label": "Docs site"
+  }
+ ],
+ "gaps": [
+  {
+   "promise": "current",
+   "surface": "core",
+   "status": "shipped",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "code",
+     "claim": "resolve() picks the current value",
+     "file": "typedmem/state.py",
+     "line": 168
+    }
+   ]
+  },
+  {
+   "promise": "current",
+   "surface": "python",
+   "status": "shipped",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "code",
+     "claim": "AgentMemory.get",
+     "file": "typedmem/agent.py",
+     "line": 255
+    }
+   ]
+  },
+  {
+   "promise": "current",
+   "surface": "cli",
+   "status": "shipped",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "code",
+     "claim": "typedmem get",
+     "file": "typedmem/cli.py",
+     "line": 283
+    }
+   ]
+  },
+  {
+   "promise": "current",
+   "surface": "http",
+   "status": "out_of_scope",
+   "boundary": "States over HTTP and TypeScript (for now)"
+  },
+  {
+   "promise": "current",
+   "surface": "ts",
+   "status": "out_of_scope",
+   "boundary": "States over HTTP and TypeScript (for now)"
+  },
+  {
+   "promise": "current",
+   "surface": "docs",
+   "status": "missing",
+   "missing": "No docs page explains states or set/get"
+  },
+  {
+   "promise": "history",
+   "surface": "core",
+   "status": "shipped",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "code",
+     "claim": "entries() lists every value with its window",
+     "file": "typedmem/state.py",
+     "line": 207
+    }
+   ]
+  },
+  {
+   "promise": "history",
+   "surface": "python",
+   "status": "shipped",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "code",
+     "claim": "AgentMemory.history",
+     "file": "typedmem/agent.py",
+     "line": 260
+    }
+   ]
+  },
+  {
+   "promise": "history",
+   "surface": "cli",
+   "status": "shipped",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "code",
+     "claim": "typedmem history <key> [-v]",
+     "file": "typedmem/cli.py",
+     "line": 299
+    }
+   ]
+  },
+  {
+   "promise": "history",
+   "surface": "http",
+   "status": "out_of_scope",
+   "boundary": "States over HTTP and TypeScript (for now)"
+  },
+  {
+   "promise": "history",
+   "surface": "ts",
+   "status": "out_of_scope",
+   "boundary": "States over HTTP and TypeScript (for now)"
+  },
+  {
+   "promise": "history",
+   "surface": "docs",
+   "status": "partial",
+   "missing": "Validity windows are explained for typed memories, not for states' history",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "doc",
+     "claim": "valid_from / valid_to in concepts",
+     "file": "docs/concepts.md",
+     "line": 36
+    }
+   ]
+  },
+  {
+   "promise": "late",
+   "surface": "core",
+   "status": "shipped",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "code",
+     "claim": "validity-time epochs in resolve()",
+     "file": "typedmem/state.py",
+     "line": 168
+    }
+   ]
+  },
+  {
+   "promise": "late",
+   "surface": "python",
+   "status": "shipped",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "code",
+     "claim": "AgentMemory.set(valid_from=...)",
+     "file": "typedmem/agent.py",
+     "line": 236
+    }
+   ]
+  },
+  {
+   "promise": "late",
+   "surface": "cli",
+   "status": "shipped",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "code",
+     "claim": "set --valid-from",
+     "file": "typedmem/cli.py",
+     "line": 535
+    }
+   ]
+  },
+  {
+   "promise": "late",
+   "surface": "http",
+   "status": "out_of_scope",
+   "boundary": "States over HTTP and TypeScript (for now)"
+  },
+  {
+   "promise": "late",
+   "surface": "ts",
+   "status": "out_of_scope",
+   "boundary": "States over HTTP and TypeScript (for now)"
+  },
+  {
+   "promise": "late",
+   "surface": "docs",
+   "status": "partial",
+   "missing": "The observed-vs-valid distinction is documented; late arrival for states is not",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "doc",
+     "claim": "timestamp vs validity",
+     "file": "docs/concepts.md",
+     "line": 42
+    }
+   ]
+  },
+  {
+   "promise": "conflict",
+   "surface": "core",
+   "status": "shipped",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "code",
+     "claim": "StateConflict",
+     "file": "typedmem/state.py",
+     "line": 102
+    }
+   ]
+  },
+  {
+   "promise": "conflict",
+   "surface": "python",
+   "status": "shipped",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "code",
+     "claim": "get raises StateConflict",
+     "file": "typedmem/agent.py",
+     "line": 255
+    }
+   ]
+  },
+  {
+   "promise": "conflict",
+   "surface": "cli",
+   "status": "shipped",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "code",
+     "claim": "get exits 3 on conflict",
+     "file": "typedmem/cli.py",
+     "line": 283
+    }
+   ]
+  },
+  {
+   "promise": "conflict",
+   "surface": "http",
+   "status": "out_of_scope",
+   "boundary": "States over HTTP and TypeScript (for now)"
+  },
+  {
+   "promise": "conflict",
+   "surface": "ts",
+   "status": "out_of_scope",
+   "boundary": "States over HTTP and TypeScript (for now)"
+  },
+  {
+   "promise": "conflict",
+   "surface": "docs",
+   "status": "partial",
+   "missing": "FLAG conflicts are documented; StateConflict and get()'s refusal are not",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "doc",
+     "claim": "FLAG policy",
+     "file": "docs/concepts.md",
+     "line": 102
+    }
+   ]
+  },
+  {
+   "promise": "provenance",
+   "surface": "core",
+   "status": "shipped",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "code",
+     "claim": "authority() from each value's sources",
+     "file": "typedmem/state.py",
+     "line": 52
+    }
+   ]
+  },
+  {
+   "promise": "provenance",
+   "surface": "python",
+   "status": "shipped",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "code",
+     "claim": "AgentMemory.set(source=, authority=)",
+     "file": "typedmem/agent.py",
+     "line": 236
+    }
+   ]
+  },
+  {
+   "promise": "provenance",
+   "surface": "cli",
+   "status": "shipped",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "code",
+     "claim": "set --source / --authority",
+     "file": "typedmem/cli.py",
+     "line": 531
+    }
+   ]
+  },
+  {
+   "promise": "provenance",
+   "surface": "http",
+   "status": "out_of_scope",
+   "boundary": "States over HTTP and TypeScript (for now)"
+  },
+  {
+   "promise": "provenance",
+   "surface": "ts",
+   "status": "out_of_scope",
+   "boundary": "States over HTTP and TypeScript (for now)"
+  },
+  {
+   "promise": "provenance",
+   "surface": "docs",
+   "status": "partial",
+   "missing": "Source is documented for typed memories; state sources and authority are not",
+   "evidence": [
+    {
+     "level": "observed",
+     "kind": "doc",
+     "claim": "Source in concepts",
+     "file": "docs/concepts.md",
+     "line": 62
+    }
+   ]
+  }
+ ],
+ "items": [
+  {
+   "id": "I1",
+   "title": "Add a States page to the docs site and fix the CLI reference's history entry",
+   "category": "credibility",
+   "bucket": "now",
+   "why_now": "The README's Docs link lands on a site with no word about the 0.9 headline feature, and distribution is about to send people there.",
+   "because": [
+    "health:F1",
+    "gap:current/docs",
+    "gap:conflict/docs",
+    "goal:state"
+   ]
+  },
+  {
+   "id": "I2",
+   "title": "Update the PyPI description (pyproject) and the old 'TypedMemory' name",
+   "category": "credibility",
+   "bucket": "now",
+   "why_now": "The PyPI page is the first thing a pip user reads, and it still says 'contract-driven memory'; the owner confirmed the README's positioning is current.",
+   "because": [
+    "goal:goal"
+   ]
+  },
+  {
+   "id": "I3",
+   "title": "Make `set` say when it confirmed a past value, not '(unchanged)'",
+   "category": "credibility",
+   "bucket": "now",
+   "why_now": "The README's own late-record story walks users straight into this message, which reads as if the old value were current (#9).",
+   "because": [
+    "health:F4",
+    "goal:state"
+   ]
+  },
+  {
+   "id": "I4",
+   "title": "Make list/all() agree with get/history after a scheduled value takes effect",
+   "category": "correctness",
+   "bucket": "next",
+   "because": [
+    "health:F3",
+    "goal:state"
+   ]
+  },
+  {
+   "id": "I5",
+   "title": "Comment on issue #5 with states as the answer; close or narrow it",
+   "category": "credibility",
+   "bucket": "next",
+   "because": [
+    "health:F2",
+    "goal:state"
+   ]
+  },
+  {
+   "id": "I6",
+   "title": "Publish the ordering rules (design 0002) as a docs page people can adopt even without the library",
+   "category": "opportunity",
+   "bucket": "next",
+   "because": [
+    "beacon:P2",
+    "beacon:P1",
+    "health:F1"
+   ]
+  },
+  {
+   "id": "I7",
+   "title": "Rewrite the docs home around the confirmed goal",
+   "category": "credibility",
+   "bucket": "next",
+   "because": [
+    "health:F1",
+    "goal:goal"
+   ]
+  },
+  {
+   "id": "I8",
+   "title": "Smoke-run agent_loop_demo.py in CI",
+   "category": "correctness",
+   "bucket": "later",
+   "because": [
+    "health:F6"
+   ]
+  },
+  {
+   "id": "I9",
+   "title": "Extract state from free text (\"Alice works at Anthropic\")",
+   "category": "opportunity",
+   "bucket": "not_now",
+   "reason": "Out of scope in the confirmed goal: you name the key. Demand exists (mem0 users), but they rely on automatic extraction, a different product.",
+   "because": [
+    "goal:boundary",
+    "goal:nl",
+    "beacon:P1"
+   ]
+  },
+  {
+   "id": "I10",
+   "title": "States over HTTP and TypeScript",
+   "category": "completeness",
+   "bucket": "not_now",
+   "reason": "Owner: Python + CLI first, until a non-Python user asks.",
+   "because": [
+    "gap:current/http",
+    "gap:current/ts",
+    "health:F5"
+   ]
+  },
+  {
+   "id": "I12",
+   "title": "Detect that an unset fact has gone stale (freshness checks)",
+   "category": "opportunity",
+   "bucket": "not_now",
+   "reason": "Real pain (4 people), but a new promise: TypedMem resolves staleness only when a newer value is set. It would need an owner decision to widen the goal.",
+   "because": [
+    "beacon:P3",
+    "goal:goal"
+   ]
+  }
+ ],
+ "decisions": [
+  {
+   "id": "D1",
+   "question": "Should the pre-0.9 typed-memory core (profiles, policies, evolvers) stay in the pitch, or become 'advanced' behind states?",
+   "evidence_for": [
+    "goal:typed",
+    "goal:audit"
+   ],
+   "evidence_against": [
+    "health:F1",
+    "goal:goal"
+   ],
+   "blocks": [
+    "I7"
+   ]
+  }
+ ]
+}

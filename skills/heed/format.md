@@ -109,3 +109,56 @@ A finding with only `inferred` evidence is not a finding. Put it in
   | planned capability | ≥1 observed or confirmed item |
   | out_of_scope capability or boundary item | ≥1 observed or confirmed item |
   | conflicts | each side has a locator |
+
+---
+
+# `.heed/plan.json` format (version 1), written by `/heed plan`
+
+```json
+{
+  "version": 1,
+  "date": "2026-09-27",
+  "promises": [{"id": "current", "text": "One current value per state", "capabilities": ["state"]}],
+  "surfaces": [{"id": "python", "label": "Python API"}, {"id": "http", "label": "HTTP"}],
+  "gaps": [
+    {"promise": "current", "surface": "python", "status": "shipped",
+     "evidence": [{"level": "observed", "kind": "code", "claim": "AgentMemory.set", "file": "typedmem/agent.py", "line": 236}]},
+    {"promise": "current", "surface": "http", "status": "out_of_scope", "boundary": "States over HTTP and TypeScript (for now)"},
+    {"promise": "current", "surface": "docs", "status": "partial", "missing": "No docs page for states",
+     "evidence": [{"level": "observed", "kind": "doc", "claim": "Docs home pre-0.9", "file": "docs/index.md", "line": 3}]}
+  ],
+  "items": [
+    {"id": "I1", "title": "Document states on the docs site", "category": "credibility", "bucket": "now",
+     "why_now": "Distribution is about to send users to a site that omits the headline feature",
+     "because": ["health:F1", "gap:current/docs", "goal:state"]},
+    {"id": "I9", "title": "Natural-language state extraction", "category": "opportunity", "bucket": "not_now",
+     "reason": "Out of scope in the confirmed goal", "because": ["goal:boundary", "beacon:P1"]}
+  ],
+  "decisions": [
+    {"id": "D1", "question": "Should the pre-0.9 core stay in the pitch?",
+     "evidence_for": ["goal:typed"], "evidence_against": ["health:F1"], "blocks": ["I4"]}
+  ]
+}
+```
+
+- `gaps[].status`: `shipped` | `partial` | `missing` | `out_of_scope` (glyphs ✓ △ — ○).
+- `items[].category`: `correctness` | `credibility` | `completeness` | `opportunity`.
+- `items[].bucket`: `now` (≤3, needs `why_now`) | `next` (≤5) | `later` | `not_now` (needs `reason`).
+- `because` references, each resolved by `validate.py --plan` against the real files:
+
+  | Reference | Resolves against |
+  |---|---|
+  | `health:F<n>` | `findings.json` |
+  | `gap:<promise>/<surface>` | this file's `gaps` |
+  | `goal:<capability id>`, `goal:boundary`, `goal:goal` | `project.json` |
+  | `beacon:P<n>` | `.beacon/launch.json` pains |
+  | `owner:<decision id>` | this file's `decisions` |
+
+- Gates:
+  - Every promise × surface cell is present exactly once.
+  - A shipped cell needs a code (or, on docs, a doc) locator.
+  - A partial cell needs a locator and `missing`; a missing cell needs `missing`.
+  - An out_of_scope cell's `boundary` must name an out-of-scope item in `project.json`.
+  - An opportunity needs a `health:` or `beacon:` reference.
+  - An item resting on an out-of-scope cell, or on `goal:boundary`, can't be `now`, `next` or `later` without an `owner:` reference.
+  - An item blocked by a decision can't be `now`.

@@ -169,3 +169,63 @@ def test_example_project_renders():
     ex = json.loads((Path(__file__).parent / "example_project.json").read_text())
     html = render.render(None, None, ex)
     assert "Resolved:" in html and html.count('class="st shipped"') == 7
+
+
+# ── plan mode: plan.json ────────────────────────────────────────────────
+EX_DIR = Path(__file__).parent
+
+
+def plan_fixture(repo):
+    """The TypedMem example plan, re-pointed at the throwaway repo: code/doc
+    locators become pkg/client.py:2 so locator checks pass."""
+    plan = json.loads((EX_DIR / "example_plan.json").read_text())
+    for g in plan["gaps"]:
+        for ev in g.get("evidence") or []:
+            ev.update(file="pkg/client.py", line=2)
+    project = json.loads((EX_DIR / "example_project.json").read_text())
+    findings = json.loads((EX_DIR / "example_findings.json").read_text())
+    beacon = {"pains": [{"id": f"P{i}"} for i in range(1, 5)]}
+    return plan, project, findings, beacon
+
+
+def test_example_plan_valid(repo):
+    plan, project, findings, beacon = plan_fixture(repo)
+    assert validate.validate_plan(plan, repo, project, findings, beacon) == []
+
+
+def _item(plan, iid):
+    return next(i for i in plan["items"] if i["id"] == iid)
+
+
+@pytest.mark.parametrize("mutate,needle", [
+    (lambda p: _item(p, "I4").update(bucket="now", why_now="x"), "at most 3"),
+    (lambda p: _item(p, "I1").pop("why_now"), "now needs why_now"),
+    (lambda p: _item(p, "I9").update(bucket="next"), "rests on something out of scope"),
+    (lambda p: _item(p, "I10").update(bucket="later"), "rests on something out of scope"),
+    (lambda p: _item(p, "I6").update(because=["goal:goal"]), "opportunity must cite"),
+    (lambda p: _item(p, "I1").update(because=["health:F99"]), "no finding F99"),
+    (lambda p: _item(p, "I6").update(because=["beacon:P9"]), "no pain P9"),
+    (lambda p: _item(p, "I7").update(bucket="now", why_now="x"), "blocked by an owner decision"),
+    (lambda p: _item(p, "I7")["because"].append("owner:D1"), "still pending"),
+    (lambda p: p["gaps"].pop(), "needs a status"),
+    (lambda p: p["gaps"][3].update(boundary="Something invented"), "out-of-scope item of the confirmed project"),
+    (lambda p: p["gaps"][0].update(evidence=[]), "shipped needs a code locator"),
+])
+def test_plan_rules_reject(repo, mutate, needle):
+    plan, project, findings, beacon = plan_fixture(repo)
+    mutate(plan)
+    errs = validate.validate_plan(plan, repo, project, findings, beacon)
+    assert any(needle in e for e in errs), errs
+
+
+def test_plan_needs_confirmed_goal(repo):
+    plan, project, findings, beacon = plan_fixture(repo)
+    project["status"] = "draft"
+    assert any("run /heed goal" in e for e in validate.validate_plan(plan, repo, project, findings, beacon))
+
+
+def test_render_plan_cockpit_and_map(repo):
+    plan, project, findings, beacon = plan_fixture(repo)
+    html = render.render(findings, None, project, plan, None)
+    assert "relative to its goal?" in html and "Gap map" in html and "Owner decision required" in html
+    assert html.count('<td class="gc out_of_scope"') == 10 and "Blocked by" in html
