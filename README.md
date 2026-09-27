@@ -95,7 +95,8 @@ real projects before the next one starts.
   bugs, gaps and demand are merged into one plan.
 
 Market and user research (who has the problem, where they are, what they
-ask for) belongs to a separate companion skill. Heed will read that skill's
+ask for) belongs to the companion skill
+[Beacon](https://github.com/lyr-ai/beacon). Heed will read Beacon's
 signals rather than scraping the web itself.
 
 Issues about a finding Heed got wrong, or one it missed, are the most useful
