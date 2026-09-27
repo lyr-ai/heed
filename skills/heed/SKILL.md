@@ -19,7 +19,7 @@ Read the protocol for the mode the user asked for, then follow it exactly.
 |---|---|---|---|
 | `/heed`, `/heed health` | What in the code deserves attention | `protocols/health.md` | `.heed/findings.json` |
 | `/heed goal` | What the project is trying to be, confirmed by the user | `protocols/goal.md` | `.heed/project.json` |
-| `/heed market`, `/heed plan` | Not built yet (v0.3–v0.5) | | Say so, and suggest `/heed goal` first |
+| `/heed gaps`, `/heed plan` | Not built yet (v0.3–v0.4) | | Say so, and suggest `/heed goal` first |
 
 Every mode ends by rendering `.heed/report.html` from whatever `.heed/` holds.
 

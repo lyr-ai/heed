@@ -71,7 +71,7 @@ Apply their answers exactly:
   open.
 - Set `"status": "confirmed"`, `"confirmed_at": "<date>"`.
 
-If the user doesn't confirm, leave it as `draft`. `market` and `plan` must
+If the user doesn't confirm, leave it as `draft`. `gaps` and `plan` must
 not run on a draft goal.
 
 ## Phase 4: Validate, render, tell

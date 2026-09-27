@@ -89,14 +89,14 @@ real projects before the next one starts.
 - **v0.1 health.** Done.
 - **v0.2 goal.** Done. The goal is confirmed by the owner, never decided by
   the agent.
-- **v0.3 market.** Public demand (GitHub issues and discussions, Reddit,
-  HN), searched against the confirmed goal and deduplicated by independent
-  users. It reports observed demand with sources, quotes and dates, never a
-  "product-market fit" score.
-- **v0.4 gaps.** A demand × coverage map: shipped, partial, missing, out of
-  scope.
-- **v0.5 plan.** Now / next / later / not now. Every item cites evidence, and
+- **v0.3 gaps.** Demand × coverage: what the project ships against what
+  users ask for (shipped, partial, missing, out of scope).
+- **v0.4 plan.** Now / next / later / not now. Every item cites evidence, and
   bugs, gaps and demand are merged into one plan.
+
+Market and user research (who has the problem, where they are, what they
+ask for) belongs to a separate companion skill. Heed will read that skill's
+signals rather than scraping the web itself.
 
 Issues about a finding Heed got wrong, or one it missed, are the most useful
 kind.
